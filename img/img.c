@@ -184,6 +184,12 @@ void NoiseErase( char img[IMGY][IMGX], int size ) {
 			}
 		}
 	}
+	
+	for(y=0; y<IMGY; y++){
+		for(x=0; x<IMGX; x++){
+			if( img[y][x] > 0 ) img[y][x] = 1;
+		}
+	}
 }
 
 
@@ -244,12 +250,12 @@ void Outline( char img[IMGY][IMGX] ) {
 	for(y=1; y<63; y++){
 		for(x=1; x<63; x++){
 			if(img[y][x] >= 1){	// check interior pixels or boundary pixels
-				if( (img[y][x] == img[y][x+1] || img[y][x+1] == 20) &&	
-					(img[y][x] == img[y][x-1] || img[y][x-1] == 20) &&	
-					(img[y][x] == img[y+1][x] || img[y+1][x] == 20) &&		
-					(img[y][x] == img[y-1][x] || img[y-1][x] == 20)   ){   
+				if( (img[y][x] == img[y][x+1] || img[y][x+1] == 99) &&	
+					(img[y][x] == img[y][x-1] || img[y][x-1] == 99) &&	
+					(img[y][x] == img[y+1][x] || img[y+1][x] == 99) &&		
+					(img[y][x] == img[y-1][x] || img[y-1][x] == 99)   ){   
 					
-					img[y][x] = 20;	// interior pixels will be 20
+					img[y][x] = 99;	// interior pixels will be 20
 				}  
 			}
 		
@@ -257,7 +263,7 @@ void Outline( char img[IMGY][IMGX] ) {
 	}
 	for(y=0; y<64; y++){
 		for(x=0; x<64; x++){	// change value of all interior pixels
-			if(img[y][x] == 20)  img[y][x] = 0;
+			if(img[y][x] == 99)  img[y][x] = 0;
 		}
 	}
 }
@@ -265,10 +271,47 @@ void Outline( char img[IMGY][IMGX] ) {
 /*
  *		特徴を抽出する関数
  */
+ 
+ FTR countInArea(int y, int x , char img[IMGY][IMGX] ){
+ 	int i, j, horizontal , vertical, upDirect, downDirect ;
+ 	horizontal = vertical = upDirect = downDirect = 0;
+ 	FTR ftr;
+	 for(i=y; i < y+15; i++){
+	 	for(j=x; j < x+15; j++){
+	 		if(img[i][j] > 0){
+	 			if(img[i][j+1] > 0) vertical++;
+	 			if(img[i][j-1] > 0) vertical++;
+	 			if(img[i-1][j] > 0) horizontal++;
+	 			if(img[i+1][j] > 0) horizontal++;
+	 			if(img[i-1][j+1] > 0) upDirect++;
+	 			if(img[i+1][j-1] > 0) upDirect++;
+	 			if(img[i-1][j-1] > 0) downDirect++;
+	 			if(img[i+1][j+1] > 0) downDirect++;
+			 }
+		 }
+	 }
+	 ftr.v = vertical;
+	 ftr.h = horizontal;
+	 ftr.ur = upDirect;
+	 ftr.dr = downDirect;
+	 printf("[v = %3d, h = %3d, ur =%3d, dr = %3d]\n", ftr.v, ftr.h, ftr.ur, ftr.dr);
+	 return ftr;
+ }
+ 
 void ExtFtr( char img[IMGY][IMGX], FTR ftr[SEGS][SEGS] ) {
 	/*
 	 *	文字画像img[][]から方向線素特徴量を抽出しftr[][]に格納する。
 	 */
+	int Xarea[7] = {0, 16, 32, 48, 8, 24, 40};
+	int Yarea[7] = {0, 16, 32, 48, 8, 24, 40};
+	
+	int i,j; 
+	for(i=0; i<7; i++){
+		for(j=0; j<7; j++){
+			ftr[i][j] = countInArea(Yarea[i], Xarea[j], img);
+		}
+	}
+	
 }
 
 /*
@@ -280,6 +323,12 @@ void PrintFtr( FTR ftr[SEGS][SEGS] ) {
 	 *	特徴量は196個の正数から成るため、それらをカンマで区切って出力する。
 	 *	数値の出力順番は問わない。
 	 */
+	int i,j;
+	for(i=0; i<SEGS; i++){
+		for(j=0; j<SEGS; j++){
+			printf("[v = %3d, h = %3d, ur =%3d, dr = %3d]\n", ftr[i][j].v, ftr[i][j].h, ftr[i][j].ur, ftr[i][j].dr);
+		}
+	}
 }
 
 
@@ -320,27 +369,133 @@ int main( ) {
 		 *	ノイズ除去
 		 */
 		NoiseErase( img, NOISESIZE ) ;
-		PrintPtn( img ) ;	/*結果を表示するデバッグ用関数 */
-	
+	//	PrintPtn( img ) ;	/*結果を表示するデバッグ用関数 */
+		display(img);
 		/*
 		 *	正規化
 		 */
 		Normalize( img ) ;
-		PrintPtn( img ) ;/*	結果を表示するデバッグ用関数 */
+	//	PrintPtn( img ) ;/*	結果を表示するデバッグ用関数 */
 		
 		/*
 		 *	輪郭抽出
 		 */
 		Outline( img ) ;
 		PrintPtn( img ) ; /*	結果を表示するデバッグ用関数 */
-		break;
+		
+	
 		/*
 		 *	特徴量抽出
 		 */
 		ExtFtr( img, ftr ) ;
 		PrintFtr( ftr ) ;
+		break;
 	}
 
 	fclose( fp ) ;
 	return 0 ;
 }
+
+/*
+ 01.imgの方向線素特徴量
+ 7x7 = 49 area, each area we have number of 4 direction.
+ 	
+[v =  46, h =   6, ur = 12, dr =   2]
+[v =  33, h =  24, ur = 20, dr =   7]
+[v =  26, h =   2, ur =  8, dr =   4]
+[v =   0, h =   0, ur =  0, dr =   0]
+[v =  38, h =  22, ur = 20, dr =   2]
+[v =  45, h =   2, ur = 10, dr =   7]
+[v =   2, h =   2, ur =  2, dr =   2]
+[v =   1, h =  26, ur =  3, dr =   1]
+[v =  18, h =  27, ur = 13, dr =   2]
+[v =  47, h =  10, ur =  6, dr =   5]
+[v =  22, h =   3, ur =  0, dr =  10]
+[v =  10, h =  51, ur = 10, dr =   3]
+[v =  25, h =  12, ur = 14, dr =   4]
+[v =  48, h =   0, ur =  0, dr =   6]
+[v =  14, h =  24, ur = 29, dr =   1]
+[v =  21, h =  20, ur = 20, dr =  11]
+[v =   2, h =   0, ur =  0, dr =   2]
+[v =  10, h =  31, ur = 12, dr =  15]
+[v =  21, h =  21, ur = 33, dr =   3]
+[v =  14, h =  12, ur = 13, dr =  11]
+[v =   0, h =   1, ur =  1, dr =   2]
+[v =  15, h =   5, ur =  4, dr =   6]
+[v =   7, h =   5, ur =  2, dr =   4]
+[v =  21, h =   9, ur = 24, dr =   3]
+[v =  14, h =  15, ur = 30, dr =   0]
+[v =  15, h =   3, ur =  6, dr =   0]
+[v =  12, h =   7, ur =  6, dr =   8]
+[v =  25, h =  12, ur = 40, dr =   0]
+[v =  24, h =  17, ur = 10, dr =   2]
+[v =  10, h =  33, ur = 14, dr =   1]
+[v =   4, h =   6, ur =  4, dr =   2]
+[v =   0, h =   0, ur =  0, dr =   0]
+[v =  19, h =  44, ur = 19, dr =   2]
+[v =  10, h =   6, ur =  6, dr =   2]
+[v =   0, h =   0, ur =  0, dr =   0]
+[v =   6, h =  21, ur =  9, dr =   2]
+[v =  22, h =  19, ur = 20, dr =   3]
+[v =  45, h =   1, ur =  3, dr =   3]
+[v =  29, h =  19, ur =  0, dr =  29]
+[v =  14, h =  32, ur = 11, dr =   5]
+[v =  27, h =   9, ur = 23, dr =   2]
+[v =  50, h =   0, ur =  0, dr =  10]
+[v =  24, h =  24, ur = 22, dr =   8]
+[v =  24, h =  18, ur = 11, dr =  15]
+[v =   9, h =   4, ur =  4, dr =   5]
+[v =  14, h =  30, ur = 36, dr =   0]
+[v =  30, h =  17, ur = 29, dr =   2]
+[v =  24, h =  11, ur =  4, dr =  21]
+[v =   6, h =  10, ur = 15, dr =   0]
+[v =  46, h =   6, ur = 12, dr =   2]
+[v =  33, h =  24, ur = 20, dr =   7]
+[v =  26, h =   2, ur =  8, dr =   4]
+[v =   0, h =   0, ur =  0, dr =   0]
+[v =  38, h =  22, ur = 20, dr =   2]
+[v =  45, h =   2, ur = 10, dr =   7]
+[v =   2, h =   2, ur =  2, dr =   2]
+[v =   1, h =  26, ur =  3, dr =   1]
+[v =  18, h =  27, ur = 13, dr =   2]
+[v =  47, h =  10, ur =  6, dr =   5]
+[v =  22, h =   3, ur =  0, dr =  10]
+[v =  10, h =  51, ur = 10, dr =   3]
+[v =  25, h =  12, ur = 14, dr =   4]
+[v =  48, h =   0, ur =  0, dr =   6]
+[v =  14, h =  24, ur = 29, dr =   1]
+[v =  21, h =  20, ur = 20, dr =  11]
+[v =   2, h =   0, ur =  0, dr =   2]
+[v =  10, h =  31, ur = 12, dr =  15]
+[v =  21, h =  21, ur = 33, dr =   3]
+[v =  14, h =  12, ur = 13, dr =  11]
+[v =   0, h =   1, ur =  1, dr =   2]
+[v =  15, h =   5, ur =  4, dr =   6]
+[v =   7, h =   5, ur =  2, dr =   4]
+[v =  21, h =   9, ur = 24, dr =   3]
+[v =  14, h =  15, ur = 30, dr =   0]
+[v =  15, h =   3, ur =  6, dr =   0]
+[v =  12, h =   7, ur =  6, dr =   8]
+[v =  25, h =  12, ur = 40, dr =   0]
+[v =  24, h =  17, ur = 10, dr =   2]
+[v =  10, h =  33, ur = 14, dr =   1]
+[v =   4, h =   6, ur =  4, dr =   2]
+[v =   0, h =   0, ur =  0, dr =   0]
+[v =  19, h =  44, ur = 19, dr =   2]
+[v =  10, h =   6, ur =  6, dr =   2]
+[v =   0, h =   0, ur =  0, dr =   0]
+[v =   6, h =  21, ur =  9, dr =   2]
+[v =  22, h =  19, ur = 20, dr =   3]
+[v =  45, h =   1, ur =  3, dr =   3]
+[v =  29, h =  19, ur =  0, dr =  29]
+[v =  14, h =  32, ur = 11, dr =   5]
+[v =  27, h =   9, ur = 23, dr =   2]
+[v =  50, h =   0, ur =  0, dr =  10]
+[v =  24, h =  24, ur = 22, dr =   8]
+[v =  24, h =  18, ur = 11, dr =  15]
+[v =   9, h =   4, ur =  4, dr =   5]
+[v =  14, h =  30, ur = 36, dr =   0]
+[v =  30, h =  17, ur = 29, dr =   2]
+[v =  24, h =  11, ur =  4, dr =  21]
+[v =   6, h =  10, ur = 15, dr =   0]
+*/
